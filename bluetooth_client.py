@@ -5,7 +5,7 @@ from bleak.backends.device import BLEDevice
 
 
 U16 = 65_536
-SLEEP_BEFORE_SUBSCRIBE = 0 # sec
+SLEEP_BETWEEN_LIFECHECK = 2 # sec
 
 BUTTON_SERVICE_UUID = "00000001-0001-0000-0000-ABCABCABCDEF"
 BUTTON_CHAR_UUID = "00000002-0001-0000-0000-ABCABCABCDEF"
@@ -28,15 +28,12 @@ async def handle_notification(char, data: bytearray):
 
 async def handle_server(pico: BLEDevice, queue: asyncio.Queue):
     async with BleakClient(pico) as client:
-        await client.read_gatt_char(BUTTON_CHAR_UUID) # For some reason you need to read once
-        await asyncio.sleep(SLEEP_BEFORE_SUBSCRIBE)
-
-        
         await client.start_notify(BUTTON_CHAR_UUID, handle_notification)
+        print(f"Listening to {pico.name}")
         while True:
-            await asyncio.sleep(1)
+            await client.read_gatt_char(BUTTON_CHAR_UUID)
+            await asyncio.sleep(SLEEP_BETWEEN_LIFECHECK)
     return
-
 
 
 async def main():
