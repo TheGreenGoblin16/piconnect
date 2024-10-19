@@ -7,6 +7,7 @@ import aioble
 
 U16 = const(65_536)
 ADVERTISE_INTERVAL = const(250_000) # millisec
+SLEEP_BETWEEN_UPDATE = const(0.05) # sec
 DEVICE_NAME = "pico1"
 
 BUTTON_SERVICE_UUID = UUID("00000001-0001-0000-0000-ABCABCABCDEF")
@@ -39,15 +40,15 @@ def get_joystick_state():
     b = 1 - btn20.value()
 
     d = 0
-    if x < U16//4 and y < U16//4: d = 8
-    elif x < U16//4 and y < U16*3//4: d = 7
-    elif x < U16//4: d = 6
-    elif x < U16*3//4 and y < U16//4: d = 1
-    elif x < U16*3//4 and y < U16*3//4: d = 0
-    elif x < U16*3//4: d = 5
-    elif y < U16//4: d = 2
-    elif y < U16*3//4: d = 3
-    else: d = 4
+    if   x < 0.3*U16 and y < 0.3*U16: d = 8
+    elif x < 0.3*U16 and y > 0.7*U16: d = 6
+    elif x > 0.7*U16 and y < 0.3*U16: d = 2
+    elif x > 0.7*U16 and y > 0.7*U16: d = 4
+    elif x < 0.1*U16: d = 7
+    elif x > 0.9*U16: d = 3
+    elif y < 0.1*U16: d = 1
+    elif y > 0.9*U16: d = 5
+    else: d = 0 # Redundant but clear
 
     return (d, b)
 
@@ -75,12 +76,11 @@ async def main():
         while True:
             curr_state = get_joystick_state()
             data = struct.pack("<BB", *curr_state) # {d}[uchar]{b}[uchar]
-            print(data)
             joystick_char.write(data)
             if curr_state != prev_state:
                 joystick_char.notify(connection, data)
                 prev_state = curr_state
-            await asyncio.sleep_ms(20)
+            await asyncio.sleep(SLEEP_BETWEEN_UPDATE)
     finally:
         await connection.disconnect()
 
