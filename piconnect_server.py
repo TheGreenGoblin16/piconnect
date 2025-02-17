@@ -6,8 +6,8 @@ import aioble
 
 
 U16 = const(65_536)
-ADVERTISE_INTERVAL = const(250_000) # millisec
-SLEEP_BETWEEN_UPDATE = const(0.05) # sec
+ADVERTISE_INTERVAL = const(250_000) # microsec
+SLEEP_BETWEEN_UPDATES = const(0.05) # sec
 DEVICE_NAME = "pico1"
 
 BUTTON_SERVICE_UUID = UUID("00001336-0001-0000-0000-ABCABCABCDEF")
@@ -16,9 +16,9 @@ SENSOR_APPEARANCE = const(0x015)
 
 
 btn0 = Pin(0, Pin.IN, Pin.PULL_UP) # Failsafe
-led25 = Pin("LED", Pin.OUT) # Pico LED
 btn20 = Pin(20, Pin.IN, Pin.PULL_UP) # Joystick Button
 Pin(21, Pin.OUT).on() # Joystick +V
+led25 = Pin("LED", Pin.OUT) # Pico LED
 pot26 = ADC(Pin(26, Pin.IN)) # Joystick Y
 pot27 = ADC(Pin(27, Pin.IN)) # Joystick X
 
@@ -48,7 +48,7 @@ def get_joystick_state():
     elif x > 0.9*U16: d = 3
     elif y < 0.1*U16: d = 1
     elif y > 0.9*U16: d = 5
-    else: d = 0 # Redundant but clear
+    else: d = 0 # Redundant but explicit
 
     return (d, b)
 
@@ -72,17 +72,18 @@ async def main():
     if connection is None: raise Exception("Connection bad")
     await blink(5, 0.1)
 
-    prev_state = (0, 0)
+    prev_state = (-1, -1)
     try:
         while True:
             curr_state = get_joystick_state()
             data = struct.pack("<BB", *curr_state) # {d}[uchar]{b}[uchar]
-            joystick_char.write(data)
             if curr_state != prev_state:
-                joystick_char.notify(connection, data)
+                joystick_char.write(data, send_update=True)
                 prev_state = curr_state
-            await asyncio.sleep(SLEEP_BETWEEN_UPDATE)
+            await asyncio.sleep(SLEEP_BETWEEN_UPDATES)
+    
     finally:
+        await blink(2, 0.1)
         await connection.disconnect()
 
 

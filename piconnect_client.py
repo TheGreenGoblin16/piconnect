@@ -7,7 +7,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 
 
 U16 = 65_536
-SLEEP_BETWEEN_LIFECHECK = 2 # sec
+SLEEP_BETWEEN_LIFECHECKS = 2 # sec
 
 BUTTON_SERVICE_UUID = "00001336-0001-0000-0000-ABCABCABCDEF"
 BUTTON_CHAR_UUID = "00001336-0001-0001-0000-ABCABCABCDEF"
@@ -23,16 +23,16 @@ class PiconnectEvent():
 
 class PiconnectClient():
     def __init__(self):
+        self.picos: list[BLEDevice] = []
         self.queue: queue.Queue = queue.Queue()
     
 
     async def discover_picos(self):
         devices = await BleakScanner.discover() # Scan for peripherials
-        picos = []
         for d in devices:
             if d.name is not None and d.name.startswith("pico"): # Peripharial matches
-                picos.append(d)
-        return picos
+                self.picos.append(d)
+        return
     
 
     async def notification_callback(self, char: BleakGATTCharacteristic, data: bytearray):
@@ -47,16 +47,16 @@ class PiconnectClient():
             print(f"Listening to {pico.name}")
             while True:
                 await client.read_gatt_char(BUTTON_CHAR_UUID)
-                await asyncio.sleep(SLEEP_BETWEEN_LIFECHECK)
+                await asyncio.sleep(SLEEP_BETWEEN_LIFECHECKS)
         return
     
 
     async def start(self):
-        picos = await self.discover_picos()
-        if len(picos) == 0: raise Exception("Not a single pico found")
-        if len(picos) > 6: raise Exception("Too many picos found")
+        await self.discover_picos()
+        if len(self.picos) == 0: raise Exception("Not a single pico found")
+        if len(self.picos) > 6: raise Exception("Too many picos found")
     
-        await asyncio.gather(*[self.handle_server(pico) for pico in picos])
+        await asyncio.gather(*[self.handle_server(pico) for pico in self.picos])
     
 
     def run(self):
